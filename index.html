@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TiSci Explorer</title>
+<meta name="description" content="Read-only explorer of TiSci, an autonomous research agent for titanium alloys: literature facts, hypotheses, verdicts, solute DFT map and ICME-lite cells.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#F4F5F8; --surface:#FFFFFF; --sunk:#ECEEF3; --ink:#1B1E26; --muted:#5B6272; --line:#DCE0E7;
+  --accent:#3F46A6; --accent-soft:#E6E7F7; --gold:#A87A12;
+  --ok:#1F7A4D; --ok-soft:#DDF1E6; --bad:#B3261E; --bad-soft:#F8DEDC; --warn:#9A6200; --warn-soft:#F7EACB;
+  --pos:#2F6FB0; --neg:#B5452E;
+  --display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Source Sans 3","Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#12141A; --surface:#1A1D25; --sunk:#151820; --ink:#E6E8EE; --muted:#9AA1B2; --line:#2A2F3A;
+  --accent:#A3A8F7; --accent-soft:#272A4A; --gold:#E0B44A;
+  --ok:#6FD19A; --ok-soft:#173226; --bad:#F2887F; --bad-soft:#3A1D1B; --warn:#EDB95A; --warn-soft:#352914;
+  --pos:#7FB2EA; --neg:#EE9A83;
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#12141A; --surface:#1A1D25; --sunk:#151820; --ink:#E6E8EE; --muted:#9AA1B2; --line:#2A2F3A;
+  --accent:#A3A8F7; --accent-soft:#272A4A; --gold:#E0B44A;
+  --ok:#6FD19A; --ok-soft:#173226; --bad:#F2887F; --bad-soft:#3A1D1B; --warn:#EDB95A; --warn-soft:#352914;
+  --pos:#7FB2EA; --neg:#EE9A83;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--body);margin:0}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;padding-block:14px 6px}
+.brand h1{font:700 1.7rem/1 var(--display);letter-spacing:.01em;margin:0}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:0;color:var(--muted);font-size:.95rem}
+nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+nav a{font:600 .95rem var(--display);letter-spacing:.04em;text-transform:uppercase;text-decoration:none;color:var(--muted);
+  padding:8px 12px 9px;border-bottom:3px solid transparent;white-space:nowrap}
+nav a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent)}
+nav a:hover{color:var(--ink)}
+main{padding-block:24px 64px}
+section[data-tab]{display:grid;gap:22px}
+h2{font:700 1.45rem/1.15 var(--display);margin:0;text-wrap:balance}
+h3{font:600 1.1rem/1.2 var(--display);letter-spacing:.02em;margin:0}
+.lede{max-width:68ch;color:var(--muted);margin:0}
+.label{font:600 .74rem var(--display);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.num,td.n,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:18px}
+.muted{color:var(--muted)}
+.small{font-size:.87rem}
+
+/* pipeline */
+.pipe{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;border:1px solid var(--line);border-radius:6px;background:var(--surface);overflow:hidden}
+.stage{padding:14px 14px 16px;border-right:1px solid var(--line);display:grid;gap:4px;align-content:start}
+.stage:last-child{border-right:0}
+.stage .big{font:600 1.55rem/1.1 var(--mono);font-variant-numeric:tabular-nums}
+.stage .what{font-size:.88rem;color:var(--muted)}
+.stage .bar{height:4px;background:var(--sunk);border-radius:2px;margin-top:6px;overflow:hidden}
+.stage .bar i{display:block;height:100%;background:var(--accent)}
+@media (max-width:900px){.pipe{grid-template-columns:repeat(3,minmax(0,1fr))}.stage:nth-child(3){border-right:0}.stage:nth-child(-n+3){border-bottom:1px solid var(--line)}}
+@media (max-width:520px){.pipe{grid-template-columns:repeat(2,minmax(0,1fr))}.stage{border-bottom:1px solid var(--line)}.stage:nth-child(3){border-right:1px solid var(--line)}.stage:nth-child(even){border-right:0}}
+
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;align-items:start}
+.stack{display:grid;gap:10px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0}
+.kv dt{color:var(--muted)} .kv dd{margin:0;font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+
+/* stacked status bar */
+.sbar{display:flex;height:22px;border-radius:3px;overflow:hidden;background:var(--sunk)}
+.sbar i{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.87rem;color:var(--muted)}
+.legend b{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+/* controls */
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+.field{display:grid;gap:3px}
+.field label{font:600 .72rem var(--display);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+input[type=search],select{font:inherit;font-size:.95rem;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:6px 9px;min-width:0}
+input[type=search]{width:min(320px,100%)}
+button{font:600 .9rem var(--display);letter-spacing:.04em;color:var(--accent);background:var(--accent-soft);border:1px solid transparent;border-radius:4px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+.count{font-size:.9rem;color:var(--muted)}
+
+/* tables */
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th{font:600 .74rem var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);background:var(--sunk);position:sticky;top:0;white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right;white-space:nowrap}
+tbody tr.click{cursor:pointer}
+tbody tr.click:hover td{background:var(--accent-soft)}
+td .t{font-weight:600}
+td .q{color:var(--muted);font-size:.86rem;margin-top:3px;max-width:70ch}
+.pos{color:var(--pos)} .neg{color:var(--neg)}
+
+/* pills */
+.pill{display:inline-block;font:600 .72rem/1 var(--display);letter-spacing:.07em;text-transform:uppercase;padding:4px 7px 3px;border-radius:3px;white-space:nowrap;background:var(--sunk);color:var(--muted)}
+.p-supported,.p-supports,.p-SOUND,.p-novel{background:var(--ok-soft);color:var(--ok)}
+.p-refuted,.p-refutes,.p-SPURIOUS,.p-known{background:var(--bad-soft);color:var(--bad)}
+.p-inconclusive,.p-WEAK,.p-incremental,.p-prior_art{background:var(--warn-soft);color:var(--warn)}
+.p-tested,.p-planned{background:var(--accent-soft);color:var(--accent)}
+
+/* drawer */
+dialog{border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);padding:0;width:min(760px,calc(100% - 32px));max-height:calc(100% - 48px)}
+dialog::backdrop{background:rgb(10 12 20 / .45)}
+.dhead{display:flex;justify-content:space-between;gap:12px;align-items:start;padding:18px 20px 12px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface)}
+.dbody{padding:16px 20px 22px;display:grid;gap:14px}
+.dbody p{margin:0;max-width:72ch}
+.res{border-left:3px solid var(--line);padding:4px 0 4px 12px;display:grid;gap:4px}
+.res.supports{border-color:var(--ok)} .res.refutes{border-color:var(--bad)} .res.inconclusive{border-color:var(--warn)}
+
+/* periodic tiles */
+.ptable{display:grid;grid-template-columns:repeat(18,minmax(38px,1fr));gap:3px;min-width:720px}
+.el{aspect-ratio:1/1;border-radius:3px;display:grid;place-items:center;align-content:center;gap:0;font:600 .95rem var(--display);border:1px solid var(--line);color:var(--muted);background:var(--surface)}
+.el.has{color:#111;border-color:transparent;cursor:pointer}
+.el.ti{outline:2px solid var(--gold);outline-offset:-2px;color:var(--ink)}
+.el small{font:400 .62rem var(--mono);opacity:.85}
+.el.sel{box-shadow:0 0 0 2px var(--ink)}
+.scale{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--muted)}
+.scale i{display:block;width:180px;height:10px;border-radius:2px}
+
+/* flow for example */
+.flow{display:grid;gap:0;border-left:2px solid var(--line);margin-left:6px}
+.step{position:relative;padding:0 0 18px 20px;display:grid;gap:6px}
+.step::before{content:"";position:absolute;left:-7px;top:3px;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2px solid var(--accent)}
+.step p{margin:0;max-width:72ch}
+.chain{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.92rem}
+.chain .node{background:var(--accent-soft);color:var(--ink);padding:3px 8px;border-radius:3px}
+.chain .rel{font:600 .7rem var(--display);letter-spacing:.08em;color:var(--muted)}
+blockquote{margin:0;padding:6px 0 6px 12px;border-left:2px solid var(--gold);color:var(--muted);font-size:.9rem;max-width:72ch}
+
+.comm{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.comm .panel{padding:14px;display:grid;gap:8px}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{font-size:.8rem;padding:2px 6px;border-radius:3px;background:var(--sunk);border:1px solid var(--line)}
+.chip[data-type="ALLOY"]{border-color:var(--accent)} .chip[data-type="PROPERTY"]{border-color:var(--gold)}
+.note{border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:4px;padding:10px 14px;background:var(--surface);font-size:.92rem;max-width:88ch}
+.note p{margin:0}
+footer{border-top:1px solid var(--line);padding-block:18px 28px;color:var(--muted);font-size:.87rem}
+.loading{color:var(--muted);font-style:italic}
+@media (prefers-reduced-motion:no-preference){.stage .bar i{transition:width .6s ease-out}}
+</style>
+
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="brand">
+      <h1>Ti<span>Sci</span> Explorer</h1>
+      <p>What an autonomous research agent read, proposed and tested about titanium alloys</p>
+    </div>
+    <nav id="nav" aria-label="Sections">
+      <a href="#overview">Overview</a>
+      <a href="#example">Worked example</a>
+      <a href="#hypotheses">Hypotheses</a>
+      <a href="#solutes">Solute DFT map</a>
+      <a href="#icme">ICME-lite cells</a>
+      <a href="#facts">Literature facts</a>
+      <a href="#graph">Knowledge graph</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section data-tab="overview" aria-labelledby="h-ov">
+  <div class="stack">
+    <h2 id="h-ov">From 200 thousand papers to tested claims</h2>
+    <p class="lede">TiSci harvests the titanium-alloy literature, builds a knowledge graph and a table of measured values, proposes hypotheses where the graph has gaps, and tests them with DFT (MACE / VASP) and the ICME-lite chain. Every number below is read from the agent's stored records. This page is a read-only snapshot; nothing here runs a model.</p>
+  </div>
+  <div class="pipe" id="pipe"><div class="stage loading">Loading…</div></div>
+  <div class="cols">
+    <div class="panel stack">
+      <h3>Hypothesis status</h3>
+      <div class="sbar" id="st-bar"></div>
+      <div class="legend" id="st-leg"></div>
+      <h3 style="margin-top:8px">Test verdicts</h3>
+      <div class="sbar" id="vd-bar"></div>
+      <div class="legend" id="vd-leg"></div>
+    </div>
+    <div class="panel stack">
+      <h3>Corpus</h3>
+      <dl class="kv" id="corpus-kv"></dl>
+    </div>
+    <div class="panel stack">
+      <h3>Largest fact tables</h3>
+      <dl class="kv" id="props-kv"></dl>
+    </div>
+  </div>
+  <div class="note"><p><b>Publishing rule.</b> Values, units, conditions and a link to the source are shown for every fact. The source sentence itself is quoted only when the paper carries a Creative Commons or public-domain licence. No full texts are published.</p></div>
+</section>
+
+<section data-tab="example" hidden aria-labelledby="h-ex">
+  <div class="stack">
+    <h2 id="h-ex">Worked example: tungsten in α-Ti</h2>
+    <p class="lede">One loop of the campaign, end to end: a path in the knowledge graph suggests a hypothesis, the critic and novelty check screen it, a DFT test runs, the result is judged against the stated prediction, and a follow-up refines it.</p>
+  </div>
+  <div class="flow" id="ex-flow"><p class="loading">Loading…</p></div>
+</section>
+
+<section data-tab="hypotheses" hidden aria-labelledby="h-hy">
+  <div class="stack">
+    <h2 id="h-hy">Hypotheses</h2>
+    <p class="lede">Every hypothesis the campaign proposed, with its critic score, novelty check, status and test results. Select a row for the full record.</p>
+  </div>
+  <div class="controls">
+    <div class="field"><label for="hy-q">Search</label><input type="search" id="hy-q" placeholder="e.g. oxygen, C44, Ti-Nb"></div>
+    <div class="field"><label for="hy-st">Status</label><select id="hy-st"><option value="">All</option></select></div>
+    <div class="field"><label for="hy-cr">Critic</label><select id="hy-cr"><option value="">All</option></select></div>
+    <div class="field"><label for="hy-nv">Novelty</label><select id="hy-nv"><option value="">All</option></select></div>
+    <div class="field"><label for="hy-res">Results</label><select id="hy-res"><option value="">Any</option><option value="1">With a test result</option></select></div>
+    <span class="count" id="hy-count"></span>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>Hypothesis</th><th>Alloy</th><th>Status</th><th>Critic</th><th>Novelty</th><th class="n">Tests</th><th>Created</th></tr></thead>
+    <tbody id="hy-body"></tbody>
+  </table></div>
+  <button id="hy-more" hidden>Show more</button>
+</section>
+
+<section data-tab="solutes" hidden aria-labelledby="h-so">
+  <div class="stack">
+    <h2 id="h-so">Solute DFT map</h2>
+    <p class="lede">Relative change of each property of hcp α-Ti when one substitutional solute replaces a Ti atom in the supercell (MACE, relaxed to fmax 0.005 eV/Å, same-cell pure Ti as reference). Choose the property and cell size; Ti is outlined.</p>
+  </div>
+  <div class="controls">
+    <div class="field"><label for="so-p">Property</label><select id="so-p"></select></div>
+    <div class="field"><label for="so-c">Supercell</label><select id="so-c"></select></div>
+  </div>
+  <div class="tbl" style="padding:12px"><div class="ptable" id="ptable"></div></div>
+  <div class="scale" id="so-scale"></div>
+  <h3>All runs: singles, pairs and triples</h3>
+  <div class="controls">
+    <div class="field"><label for="so-q">Solutes</label><input type="search" id="so-q" placeholder="e.g. W, Fe+Zr, Al+Mo+V"></div>
+    <div class="field"><label for="so-k">Kind</label><select id="so-k"><option value="">All</option><option value="1">Single</option><option value="2">Pair</option><option value="3">Triple</option></select></div>
+    <span class="count" id="so-count"></span>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>Solutes</th><th>Cell</th><th class="n">at.%</th><th class="n">ΔC11</th><th class="n">ΔC33</th><th class="n">ΔC44</th><th class="n">Δ(c/a)</th><th class="n">ΔV/V</th><th class="n">E<sub>f</sub> eV</th><th>Flags</th></tr></thead>
+    <tbody id="so-body"></tbody>
+  </table></div>
+  <button id="so-more" hidden>Show more</button>
+  <h3>Pair interaction (2×2×2)</h3>
+  <p class="lede small">Excess of each pair over the sum of its two single-solute effects, for the property chosen above.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Pair</th><th class="n">ΔC11</th><th class="n">ΔC33</th><th class="n">ΔC44</th><th class="n">Δ(c/a)</th><th class="n">ΔV/V</th><th class="n">E<sub>f</sub> eV</th></tr></thead>
+    <tbody id="pair-body"></tbody>
+  </table></div>
+</section>
+
+<section data-tab="icme" hidden aria-labelledby="h-ic">
+  <div class="stack">
+    <h2 id="h-ic">TiSci → ICME-lite cells</h2>
+    <p class="lede">Each cell is one solute in a Ti supercell run through the ICME-lite chain: elastic tensor, generalised stacking-fault energy, Peierls–Nabarro CRSS per slip system, then crystal plasticity (DAMASK spectral) and VPSC. Ratios are against pure Ti in the same cell size; below 1 means softer.</p>
+  </div>
+  <div class="note" id="twin-note"></div>
+  <div class="controls">
+    <div class="field"><label for="ic-q">Cell</label><input type="search" id="ic-q" placeholder="e.g. W, 3x3x3"></div>
+    <span class="count" id="ic-count"></span>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>Cell</th><th>Status</th><th class="n">τ₀ prism</th><th class="n">τ₀ basal</th><th class="n">τ₀ ⟨c+a⟩</th><th class="n">DAMASK yield</th><th class="n">DAMASK flow</th><th class="n">VPSC flow</th><th class="n">DAMASK yield MPa</th><th>Critic codes</th></tr></thead>
+    <tbody id="ic-body"></tbody>
+  </table></div>
+</section>
+
+<section data-tab="facts" hidden aria-labelledby="h-fa">
+  <div class="stack">
+    <h2 id="h-fa">Literature facts</h2>
+    <p class="lede">Values extracted from the papers, one table per property. Filter by alloy or any text; each row links to its source.</p>
+  </div>
+  <div class="controls">
+    <div class="field"><label for="fa-p">Property</label><select id="fa-p"></select></div>
+    <div class="field"><label for="fa-a">Alloy</label><input type="search" id="fa-a" placeholder="e.g. Ti-6Al-4V"></div>
+    <div class="field"><label for="fa-q">Text</label><input type="search" id="fa-q" placeholder="condition, method, unit…"></div>
+    <div class="field"><label for="fa-o">Only</label><select id="fa-o"><option value="">All rows</option><option value="q">With quoted sentence</option><option value="m">Measured (no predictions)</option></select></div>
+    <span class="count" id="fa-count"></span>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>Alloy</th><th class="n">Value</th><th>Unit</th><th>Conditions</th><th>Source</th></tr></thead>
+    <tbody id="fa-body"></tbody>
+  </table></div>
+  <button id="fa-more" hidden>Show more</button>
+</section>
+
+<section data-tab="graph" hidden aria-labelledby="h-gr">
+  <div class="stack">
+    <h2 id="h-gr">Knowledge graph communities</h2>
+    <p class="lede" id="gr-lede"></p>
+  </div>
+  <div class="controls">
+    <div class="field"><label for="gr-q">Contains node</label><input type="search" id="gr-q" placeholder="e.g. oxygen, twinning, β transus"></div>
+    <span class="count" id="gr-count"></span>
+  </div>
+  <div class="comm" id="gr-list"></div>
+  <button id="gr-more" hidden>Show more</button>
+</section>
+
+</main>
+
+<dialog id="dlg" aria-labelledby="dlg-t">
+  <div class="dhead"><div class="stack" style="gap:6px"><span class="label" id="dlg-k"></span><h3 id="dlg-t"></h3></div><button id="dlg-x">Close</button></div>
+  <div class="dbody" id="dlg-b"></div>
+</dialog>
+
+<footer class="wrap" id="foot"></footer>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt = n => typeof n === "number" ? n.toLocaleString("en-US") : esc(n);
+const pct = v => v == null ? "–" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v * 100).toFixed(1) + "%";
+const sgn = v => v > 0 ? "pos" : v < 0 ? "neg" : "";
+const pill = (v, t) => v ? `<span class="pill p-${esc(v)}">${esc(t || v).replace(/_/g, " ")}</span>` : `<span class="muted">–</span>`;
+const cache = {};
+const get = p => cache[p] ??= fetch("data/" + p).then(r => { if (!r.ok) throw new Error(p + " " + r.status); return r.json(); });
+const pf = s => { try { return JSON.parse(s || "[]"); } catch { return []; } };
+let works = null;
+const workLink = id => get("works.json").then(w => (works = w, w[id]));
+const srcHTML = id => {
+  const w = works && works[id];
+  if (!w) return `<span class="mono small">${esc(id)}</span>`;
+  const t = esc((w[0] || id).slice(0, 110)) + ((w[0] || "").length > 110 ? "…" : "");
+  return (w[2] ? `<a href="${esc(w[2])}" target="_blank" rel="noopener">${t}</a>` : t) + (w[1] ? ` <span class="muted">(${w[1]})</span>` : "");
+};
+
+/* ---------- tabs ---------- */
+const tabs = [...document.querySelectorAll("section[data-tab]")];
+const inited = {};
+function show() {
+  const id = (location.hash || "#overview").slice(1).split("/")[0];
+  const t = tabs.find(s => s.dataset.tab === id) ? id : "overview";
+  tabs.forEach(s => s.hidden = s.dataset.tab !== t);
+  document.querySelectorAll("#nav a").forEach(a => { if (a.getAttribute("href") !== "#" + t) a.removeAttribute("aria-current"); else a.setAttribute("aria-current", "page"); });
+  if (!inited[t]) { inited[t] = true; (INIT[t] || (() => {}))(); }
+}
+addEventListener("hashchange", () => { show(); scrollTo({top: 0}); });
+
+const STC = {supported: "var(--ok)", refuted: "var(--bad)", tested: "var(--accent)", planned: "color-mix(in srgb, var(--accent) 45%, var(--sunk))", proposed: "var(--line)", prior_art: "var(--warn)"};
+const VDC = {supports: "var(--ok)", refutes: "var(--bad)", inconclusive: "var(--warn)"};
+function sbar(el, leg, counts, colors) {
+  const tot = Object.values(counts).reduce((a, b) => a + b, 0);
+  const keys = Object.keys(colors).filter(k => counts[k]);
+  $(el).innerHTML = keys.map(k => `<i style="width:${100 * counts[k] / tot}%;background:${colors[k]}" title="${k}: ${counts[k]}"></i>`).join("");
+  $(leg).innerHTML = keys.map(k => `<span><b style="background:${colors[k]}"></b>${k.replace("_", " ")} <span class="num">${counts[k]}</span></span>`).join("");
+}
+
+/* ---------- overview ---------- */
+async function initOverview() {
+  const o = await get("overview.json"), c = o.corpus, cs = o.campaign_stats;
+  const tested = (cs.status.tested || 0) + (cs.status.supported || 0) + (cs.status.refuted || 0);
+  const st = [
+    [c.rows, "works harvested", "OpenAlex, arXiv, Europe PMC and repositories", 1],
+    [c.in_scope, "in scope", "about titanium alloys", c.in_scope / c.rows],
+    [o.graph.nodes, "graph nodes", `${fmt(o.graph.edges)} edges from ${fmt(c.kg_docs)} papers`, c.kg_docs / c.rows],
+    [o.facts.n, "measured values", `from ${fmt(o.facts.works)} papers`, o.facts.works / c.rows],
+    [cs.hypotheses, "hypotheses", `${fmt(cs.cycles)} campaign cycles`, cs.hypotheses / c.rows * 50],
+    [tested, "tested", `${cs.results} results; ${cs.status.supported || 0} supported, ${cs.status.refuted || 0} refuted`, tested / cs.hypotheses],
+  ];
+  $("#pipe").innerHTML = st.map(([n, k, w, f]) => `<div class="stage"><span class="label">${k}</span><span class="big">${fmt(n)}</span><span class="what">${w}</span><span class="bar"><i style="width:${Math.max(2, Math.min(100, f * 100))}%"></i></span></div>`).join("");
+  sbar("#st-bar", "#st-leg", cs.status, STC);
+  const h = await get("hypotheses.json"), vd = {};
+  h.forEach(x => x.results.forEach(r => vd[r.verdict] = (vd[r.verdict] || 0) + 1));
+  sbar("#vd-bar", "#vd-leg", vd, VDC);
+  $("#corpus-kv").innerHTML = [["Works harvested", c.rows], ["In scope", c.in_scope], ["With text", c.text], ["In scope, full text", c.in_scope_text], ["Graph papers", c.kg_docs], ["Graph nodes", o.graph.nodes], ["Graph edges", o.graph.edges], ["Communities", o.graph.communities], ["Solute DFT runs", o.solutes.singles], ["ICME-lite cells", `${o.icme_lite.completed} / ${o.icme_lite.cells}`]]
+    .map(([k, v]) => `<dt>${k}</dt><dd>${fmt(v)}</dd>`).join("");
+  $("#props-kv").innerHTML = Object.entries(o.facts.properties).slice(0, 10).map(([k, v]) => `<dt>${k.replace(/_/g, " ")}</dt><dd>${fmt(v)}</dd>`).join("");
+  $("#foot").innerHTML = `Snapshot ${esc(o.snapshot.replace("T", " "))} · campaign <span class="mono">${esc(o.campaign)}</span> · ${fmt(o.facts.quoted)} of ${fmt(o.facts.n)} facts carry a quoted sentence (openly licensed sources). Code: <a href="https://github.com/akhtar07/tisci-explorer">github.com/akhtar07/tisci-explorer</a>.`;
+}
+
+/* ---------- worked example ---------- */
+async function initExample() {
+  const [e] = await Promise.all([get("example.json"), get("works.json").then(w => works = w)]);
+  const p = e.prop, f = p.final || {};
+  const path = (p.path && (p.path.hops || p.path)) || [];
+  const edges = Array.isArray(path) ? path : [];
+  const chain = edges.map(x => `<div class="chain"><span class="node">${esc(x.s)}</span><span class="rel">${esc(String(x.p).replace(/_/g, " "))}</span><span class="node">${esc(x.o)}</span><span class="small muted">${x.n_docs} paper${x.n_docs === 1 ? "" : "s"}</span></div>`).join("");
+  const quotes = edges.flatMap(x => (x.support || []).filter(s => s.sentence).map(s => `<blockquote>${esc(s.sentence)}<br>${srcHTML(s.doc_id)}</blockquote>`)).slice(0, 3).join("");
+  const checks = r => (r && r.checks || []).map(c => `<tr><td>${esc(c.quantity)}</td><td>${esc(c.predicted_sign)}${c.predicted_band ? ` <span class="muted">(${c.predicted_band.map(v => (v * 100).toFixed(1)).join("–")}%)</span>` : ""}</td><td class="n ${sgn(c.observed_value)}">${c.observed_value != null ? pct(c.observed_value) : "–"}</td><td>${c.agrees ? pill("supports", "sign agrees") : pill("refutes", "sign disagrees")}</td><td class="small muted">${esc(c.magnitude_note || "")}</td></tr>`).join("");
+  const ctab = r => `<div class="tbl"><table><thead><tr><th>Quantity</th><th>Predicted</th><th class="n">Observed</th><th>Sign</th><th>Magnitude</th></tr></thead><tbody>${checks(r)}</tbody></table></div>`;
+  const i1 = e.i1 || {}, i2 = e.i2 || {}, ff = (e.fol && e.fol.final) || {};
+  const nc = e.nc || {};
+  const dp = v => v == null ? "–" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(1) + "%";
+  const icme = (e.icme || []).map(c => { const v = c.vs_pure || {}; return `<tr><td class="mono">${esc(c.cell)}</td><td>${esc(String(c.variant).replace(/_/g, " "))}</td><td>${pill(c.status === "COMPLETED" ? "supports" : "inconclusive", c.status)}</td><td class="n ${sgn(v.d_sigma_y02_MPa_pct)}">${dp(v.d_sigma_y02_MPa_pct)}</td><td class="n ${sgn(v.d_flow_stress_MPa_pct)}">${dp(v.d_flow_stress_MPa_pct)}</td><td class="n ${sgn(v.d_E_apparent_GPa_pct)}">${dp(v.d_E_apparent_GPa_pct)}</td></tr>`; }).join("");
+  $("#ex-flow").innerHTML = `
+    <div class="step"><span class="label">1 · Graph path</span><p class="small muted">Relations extracted from the literature that led the agent to this hypothesis.</p>${chain || "<p class='muted'>Path not stored.</p>"}${quotes}</div>
+    <div class="step"><span class="label">2 · Hypothesis</span><h3>${esc(f.title)}</h3><p>${esc(f.hypothesis)}</p><p class="muted small"><b>Mechanism.</b> ${esc(f.mechanism)}</p><p class="small"><b>Prediction.</b> ${esc(f.prediction)}</p></div>
+    <div class="step"><span class="label">3 · Novelty check</span><p>${pill(nc.verdict)} <span class="muted small">searched ${esc(nc.coverage || "")}: ${(nc.queries || []).map(esc).join(", ")}</span></p></div>
+    <div class="step"><span class="label">4 · Test plan</span><p class="small"><b>Executor.</b> <span class="mono">${esc(e.intent && e.intent.executor)}</span> · ${esc(e.intent && e.intent.surrogate && e.intent.surrogate.task)}, ${esc(e.intent && e.intent.surrogate && (e.intent.surrogate.solutes || []).join("+"))} in ${esc(e.intent && e.intent.surrogate && (e.intent.surrogate.supercell || []).join("×"))}</p><p class="small"><b>Falsified if.</b> ${esc(e.intent && e.intent.falsifies_if)}</p></div>
+    <div class="step"><span class="label">5 · Result at ${esc(i1.run_at_pct)} at.% · reference: ${esc(e.out1 && e.out1.d_reference)}</span><p>${pill(i1.interpretation && i1.interpretation.verdict)} ${i1.accepted ? pill("supported", "accepted") : ""}</p>${ctab(i1.interpretation)}</div>
+    <div class="step"><span class="label">6 · Follow-up at ${esc(i2.run_at_pct)} at.%</span><h3>${esc(ff.title)}</h3><p>${esc(ff.hypothesis)}</p><p>${pill(i2.interpretation && i2.interpretation.verdict)} ${i2.accepted ? pill("supported", "accepted") : ""}</p>${ctab(i2.interpretation)}</div>
+    ${icme ? `<div class="step"><span class="label">7 · Crystal plasticity (DAMASK) against pure Ti</span><p class="small muted">The DFT result drives a DAMASK run in three ways: elastic constants only, CRSS scaled by the stacking-fault energy change, and CRSS scaled by the shear-modulus change.</p><div class="tbl"><table><thead><tr><th>Cell</th><th>Variant</th><th>Status</th><th class="n">Δσ<sub>y0.2</sub></th><th class="n">Δ flow</th><th class="n">Δ E</th></tr></thead><tbody>${icme}</tbody></table></div></div>` : ""}`;
+}
+
+/* ---------- hypotheses ---------- */
+let HY = [], hyN = 60;
+async function initHyp() {
+  HY = await get("hypotheses.json");
+  get("works.json").then(w => works = w);
+  const opts = (sel, key) => { const s = [...new Set(HY.map(h => h[key]).filter(Boolean))].sort(); $(sel).insertAdjacentHTML("beforeend", s.map(v => `<option>${esc(v)}</option>`).join("")); };
+  opts("#hy-st", "status"); opts("#hy-cr", "critic_verdict"); opts("#hy-nv", "novelty_verdict");
+  ["#hy-q", "#hy-st", "#hy-cr", "#hy-nv", "#hy-res"].forEach(s => $(s).addEventListener("input", () => { hyN = 60; renderHyp(); }));
+  $("#hy-more").onclick = () => { hyN += 100; renderHyp(); };
+  renderHyp();
+}
+function hypRows() {
+  const q = $("#hy-q").value.trim().toLowerCase(), st = $("#hy-st").value, cr = $("#hy-cr").value, nv = $("#hy-nv").value, rs = $("#hy-res").value;
+  return HY.filter(h => (!st || h.status === st) && (!cr || h.critic_verdict === cr) && (!nv || h.novelty_verdict === nv) && (!rs || h.results.length)
+    && (!q || [h.title, h.hypothesis, h.alloy, h.mechanism, h.pair_a, h.pair_b].join(" ").toLowerCase().includes(q))).reverse();
+}
+function renderHyp() {
+  const r = hypRows();
+  $("#hy-count").textContent = `${r.length} of ${HY.length}`;
+  $("#hy-body").innerHTML = r.slice(0, hyN).map(h => `<tr class="click" data-h="${h.hash}" tabindex="0"><td><div class="t">${esc(h.title)}</div><div class="q">${esc((h.prediction || "").slice(0, 180))}</div></td><td>${esc(h.alloy)}</td><td>${pill(h.status)}</td><td>${pill(h.critic_verdict)}${h.critic_total != null ? ` <span class="num small muted">${h.critic_total}</span>` : ""}</td><td>${pill(h.novelty_verdict)}</td><td class="n">${h.results.length ? h.results.map(x => `<span class="pill p-${x.verdict}" title="${esc(x.verdict)}">${esc((x.verdict || "?")[0])}</span>`).join(" ") : "–"}</td><td class="mono small">${esc((h.created || "").slice(0, 10))}</td></tr>`).join("");
+  $("#hy-more").hidden = r.length <= hyN;
+}
+function openHyp(hash) {
+  const h = HY.find(x => x.hash === hash); if (!h) return;
+  $("#dlg-k").textContent = `${h.alloy || ""} · ${h.hash}`;
+  $("#dlg-t").textContent = h.title;
+  const res = h.results.map(r => { const fl = pf(r.postflight_flags); return `<div class="res ${esc(r.verdict)}"><div>${pill(r.verdict)} ${r.accepted ? pill("supported", "accepted") : ""} <span class="muted small">${esc(r.executor || "")} ${esc(r.kind || "")} · confidence ${esc(r.confidence || "–")} · ${esc((r.created || "").slice(0, 16).replace("T", " "))}</span></div><p class="small">${esc(r.interpretation)}</p>${fl.length ? `<p class="small muted">Post-flight flags: ${fl.map(esc).join("; ")}</p>` : ""}</div>`; }).join("");
+  const pa = h.prior_art.map(([k, ref]) => `<li>${esc(k)}: ${srcHTML(ref)}</li>`).join("");
+  $("#dlg-b").innerHTML = `
+    <div>${pill(h.status)} ${pill(h.critic_verdict)} ${pill(h.novelty_verdict)}</div>
+    <p>${esc(h.hypothesis)}</p>
+    ${h.mechanism ? `<p class="small"><b>Mechanism.</b> ${esc(h.mechanism)}</p>` : ""}
+    ${h.prediction ? `<p class="small"><b>Prediction.</b> ${esc(h.prediction)}</p>` : ""}
+    ${h.computational_test ? `<p class="small"><b>Test.</b> ${esc(h.computational_test)}</p>` : ""}
+    ${h.pair_a ? `<p class="small muted">Graph gap: <b>${esc(h.pair_a)}</b> ↔ <b>${esc(h.pair_b)}</b> · ${h.n_intents} test plan(s)${Object.keys(h.evidence).length ? " · evidence " + Object.entries(h.evidence).map(([k, v]) => `${esc(k)} ${v}`).join(", ") : ""}</p>` : ""}
+    ${res ? `<h3>Results</h3>${res}` : `<p class="muted small">Not tested yet.</p>`}
+    ${pa ? `<h3>Prior art found</h3><ul class="small">${pa}</ul>` : ""}`;
+  $("#dlg").showModal();
+}
+$("#hy-body").addEventListener("click", e => { const tr = e.target.closest("tr[data-h]"); if (tr) openHyp(tr.dataset.h); });
+$("#hy-body").addEventListener("keydown", e => { if (e.key === "Enter") { const tr = e.target.closest("tr[data-h]"); if (tr) openHyp(tr.dataset.h); } });
+$("#dlg-x").onclick = () => $("#dlg").close();
+$("#dlg").addEventListener("click", e => { if (e.target === $("#dlg")) $("#dlg").close(); });
+
+/* ---------- solutes ---------- */
+const PT = {H:[1,1],He:[1,18],Li:[2,1],Be:[2,2],B:[2,13],C:[2,14],N:[2,15],O:[2,16],F:[2,17],Ne:[2,18],Na:[3,1],Mg:[3,2],Al:[3,13],Si:[3,14],P:[3,15],S:[3,16],Cl:[3,17],Ar:[3,18],
+  K:[4,1],Ca:[4,2],Sc:[4,3],Ti:[4,4],V:[4,5],Cr:[4,6],Mn:[4,7],Fe:[4,8],Co:[4,9],Ni:[4,10],Cu:[4,11],Zn:[4,12],Ga:[4,13],Ge:[4,14],As:[4,15],Se:[4,16],Br:[4,17],Kr:[4,18],
+  Rb:[5,1],Sr:[5,2],Y:[5,3],Zr:[5,4],Nb:[5,5],Mo:[5,6],Tc:[5,7],Ru:[5,8],Rh:[5,9],Pd:[5,10],Ag:[5,11],Cd:[5,12],In:[5,13],Sn:[5,14],Sb:[5,15],Te:[5,16],I:[5,17],Xe:[5,18],
+  Cs:[6,1],Ba:[6,2],La:[6,3],Hf:[6,4],Ta:[6,5],W:[6,6],Re:[6,7],Os:[6,8],Ir:[6,9],Pt:[6,10],Au:[6,11],Hg:[6,12],Tl:[6,13],Pb:[6,14],Bi:[6,15],Po:[6,16],At:[6,17],Rn:[6,18]};
+const PROPS = [["d_C44","ΔC44",1],["d_C33","ΔC33",1],["d_C11","ΔC11",1],["d_c/a","Δ(c/a)",1],["dV/V","ΔV/V",1],["E_f eV","Formation energy, eV",0]];
+let SO = null, soN = 80;
+const cellKey = r => r.supercell.join("x");
+function diverge(v, m) {
+  const t = Math.max(-1, Math.min(1, v / (m || 1)));
+  const a = Math.abs(t) ** .7;
+  return t >= 0 ? `color-mix(in srgb, #3E7CC4 ${Math.round(a * 85 + 8)}%, #F3F4F7)` : `color-mix(in srgb, #D0603F ${Math.round(a * 85 + 8)}%, #F3F4F7)`;
+}
+async function initSolutes() {
+  SO = await get("solutes.json");
+  $("#so-p").innerHTML = PROPS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("");
+  const cells = [...new Set(SO.singles.filter(r => r.solutes.length === 1).map(cellKey))].sort();
+  $("#so-c").innerHTML = cells.map(c => `<option${c === "2x2x2" ? " selected" : ""}>${c}</option>`).join("");
+  ["#so-p", "#so-c"].forEach(s => $(s).addEventListener("input", () => { renderPT(); renderPairs(); }));
+  ["#so-q", "#so-k"].forEach(s => $(s).addEventListener("input", () => { soN = 80; renderRuns(); }));
+  $("#so-more").onclick = () => { soN += 200; renderRuns(); };
+  $("#ptable").addEventListener("click", e => { const el = e.target.closest(".el.has"); if (el) { $("#so-q").value = el.dataset.s; $("#so-k").value = ""; soN = 80; renderRuns(); $("#so-q").scrollIntoView({block: "center"}); } });
+  renderPT(); renderRuns(); renderPairs();
+}
+function renderPT() {
+  const p = $("#so-p").value, c = $("#so-c").value, rel = PROPS.find(x => x[0] === p)[2];
+  const rows = SO.singles.filter(r => r.solutes.length === 1 && cellKey(r) === c);
+  const by = Object.fromEntries(rows.map(r => [r.solute, r]));
+  const m = Math.max(...rows.map(r => Math.abs(r[p] ?? 0)), 1e-9);
+  const cells = [];
+  for (const [s, [row, col]] of Object.entries(PT)) {
+    const r = by[s], v = r && r[p];
+    const style = `grid-row:${row};grid-column:${col}` + (v != null ? `;background:${diverge(v, m)}` : "");
+    cells.push(`<div class="el${v != null ? " has" : ""}${s === "Ti" ? " ti" : ""}" style="${style}" data-s="${s}" title="${s}${v != null ? `: ${rel ? pct(v) : v.toFixed(3)} at ${r.at_pct} at.%` : ""}">${s}${v != null ? `<small>${rel ? pct(v) : v.toFixed(2)}</small>` : ""}</div>`);
+  }
+  $("#ptable").innerHTML = cells.join("");
+  const at = rows[0] ? rows[0].at_pct : "";
+  $("#so-scale").innerHTML = `<span class="num">${rel ? pct(-m) : (-m).toFixed(2)}</span><i style="background:linear-gradient(90deg,${diverge(-m, m)},${diverge(0, m)},${diverge(m, m)})"></i><span class="num">${rel ? pct(m) : m.toFixed(2)}</span><span>· ${rows.length} solutes at ${at} at.% in ${c}</span>`;
+}
+function renderRuns() {
+  const q = $("#so-q").value.trim().toLowerCase().split(/[+\s,]+/).filter(Boolean), k = +$("#so-k").value;
+  const r = SO.singles.filter(x => (!k || x.solutes.length === k) && q.every(t => x.solutes.some(s => s.toLowerCase() === t)));
+  r.sort((a, b) => a.solutes.length - b.solutes.length || a.solute.localeCompare(b.solute) || cellKey(a).localeCompare(cellKey(b)));
+  $("#so-count").textContent = `${r.length} runs`;
+  const c = v => `<td class="n ${sgn(v)}">${v == null ? "–" : pct(v)}</td>`;
+  $("#so-body").innerHTML = r.slice(0, soN).map(x => `<tr><td><b>${esc(x.solute)}</b></td><td class="mono small">${cellKey(x)}</td><td class="n">${x.at_pct}</td>${c(x.d_C11)}${c(x.d_C33)}${c(x.d_C44)}${c(x["d_c/a"])}${c(x["dV/V"])}<td class="n">${x["E_f eV"] != null ? x["E_f eV"].toFixed(3) : "–"}</td><td class="small muted">${(x.flags || []).map(esc).join(", ")}</td></tr>`).join("");
+  $("#so-more").hidden = r.length <= soN;
+}
+function renderPairs() {
+  const p = $("#so-p").value;
+  const r = [...SO.pairs].sort((a, b) => Math.abs(b[p] ?? 0) - Math.abs(a[p] ?? 0)).slice(0, 25);
+  const c = (v, rel = 1) => `<td class="n ${sgn(v)}${p === "" ? "" : ""}">${v == null ? "–" : rel ? pct(v) : v.toFixed(3)}</td>`;
+  $("#pair-body").innerHTML = r.map(x => `<tr><td><b>${esc(x.pair)}</b></td>${c(x.d_C11)}${c(x.d_C33)}${c(x.d_C44)}${c(x["d_c/a"])}${c(x["dV/V"])}${c(x["E_f eV"], 0)}</tr>`).join("") + `<tr><td colspan="7" class="small muted">Top 25 of ${SO.pairs.length} pairs by |excess| in the chosen property.</td></tr>`;
+}
+
+/* ---------- ICME-lite ---------- */
+let IC = null;
+async function initIcme() {
+  IC = await get("icme_lite.json");
+  const t = IC.twin_check;
+  if (t && t.rows) {
+    const R = (c, tw) => t.rows.find(r => r.cell === c && r.twins === tw) || {};
+    const p = R("pure:2x2x2:default", "template"), po = R("pure:2x2x2:default", "off"), h = R(t.hi_cell, "template"), ho = R(t.hi_cell, "off");
+    $("#twin-note").innerHTML = `<p><b>Known defect in the VPSC leg.</b> The hcp VPSC template carries ${t.mode_names.length} deformation modes, but the chain passes only the three slip CRSS values, so the two twin modes keep the template's τ₀ of ${t.template_tau0_MPa.slice(3).join(" and ")} MPa. Every hcp VPSC curve therefore starts at ${p.first_stress_MPa} MPa. With twins moved out of reach, pure Ti (2×2×2) starts at ${po.first_stress_MPa} MPa instead, and the stiffest cell (${esc(t.hi_cell.split(":")[0])}, 2×2×2) goes from ${h.stress_at_strain_MPa} to ${ho.stress_at_strain_MPa} MPa at ${(t.strain * 100).toFixed(0)}% strain. Read the VPSC columns with that in mind; the DAMASK columns are not affected.</p>`;
+  } else $("#twin-note").hidden = true;
+  $("#ic-q").addEventListener("input", renderIcme);
+  renderIcme();
+}
+function renderIcme() {
+  const q = $("#ic-q").value.trim().toLowerCase();
+  const r = IC.cells.filter(c => !q || c.id.toLowerCase().includes(q));
+  r.sort((a, b) => (a.kind === "pure" ? 0 : 1) - (b.kind === "pure" ? 0 : 1) || a.id.localeCompare(b.id));
+  $("#ic-count").textContent = `${r.length} cells`;
+  const rt = v => v == null ? `<td class="n">–</td>` : `<td class="n ${v > 1.005 ? "pos" : v < 0.995 ? "neg" : ""}">${v.toFixed(3)}</td>`;
+  $("#ic-body").innerHTML = r.map(c => {
+    const vp = c.vs_pure || {}, t = vp.tau0_ratio || {}, s = c.summary || {};
+    const codes = [...new Set(Object.values(s.critic || {}).flatMap(x => x.codes || []))];
+    const [sol, cell] = c.id.split(":");
+    return `<tr><td><b>${esc(sol === "pure" ? "pure Ti" : sol)}</b> <span class="mono small muted">${esc(cell)}</span></td><td>${pill(c.status === "COMPLETED" ? "supports" : "refutes", c.status)}</td>${rt(t["prismatic <a> (first-order)"])}${rt(t["basal <a>"])}${rt(t["pyramidal <c+a>"])}${rt(vp.damask_yield_ratio)}${rt(vp.damask_flow_ratio)}${rt(vp.vpsc_flow_ratio)}<td class="n">${s.damask_yield_MPa ?? "–"}</td><td class="small muted">${codes.map(esc).join(", ")}${c.errors && c.errors.length ? `<br><span class="neg">${esc(String(c.errors[0]).slice(0, 120))}</span>` : ""}</td></tr>`;
+  }).join("");
+}
+
+/* ---------- facts ---------- */
+let FA = null, faN = 100;
+async function initFacts() {
+  const o = await get("overview.json");
+  works = await get("works.json");
+  $("#fa-p").innerHTML = Object.entries(o.facts.properties).map(([k, v]) => `<option value="${k}"${k === "yield_strength" ? " selected" : ""}>${k.replace(/_/g, " ")} (${fmt(v)})</option>`).join("");
+  $("#fa-p").addEventListener("input", loadFacts);
+  ["#fa-a", "#fa-q", "#fa-o"].forEach(s => $(s).addEventListener("input", () => { faN = 100; renderFacts(); }));
+  $("#fa-more").onclick = () => { faN += 200; renderFacts(); };
+  loadFacts();
+}
+async function loadFacts() {
+  $("#fa-body").innerHTML = `<tr><td colspan="5" class="loading">Loading…</td></tr>`;
+  const d = await get("facts/" + $("#fa-p").value + ".json");
+  const ix = Object.fromEntries(d.cols.map((c, i) => [c, i]));
+  FA = d.rows.map(r => ({r, ix, hay: [r[ix.alloy], r[ix.property_raw], r[ix.unit], r[ix.condition], r[ix.microstructure], r[ix.method], r[ix.T], r[ix.strain_rate], r[ix.sentence]].join(" ").toLowerCase()}));
+  faN = 100; renderFacts();
+}
+function renderFacts() {
+  const a = $("#fa-a").value.trim().toLowerCase(), q = $("#fa-q").value.trim().toLowerCase(), o = $("#fa-o").value;
+  const rows = FA.filter(({r, ix, hay}) => (!a || String(r[ix.alloy]).toLowerCase().includes(a)) && (!q || hay.includes(q)) && (o !== "q" || r[ix.sentence]) && (o !== "m" || !r[ix.prediction]));
+  $("#fa-count").textContent = `${fmt(rows.length)} of ${fmt(FA.length)}`;
+  $("#fa-body").innerHTML = rows.slice(0, faN).map(({r, ix}) => {
+    const v = r[ix.value] != null ? r[ix.value] : (r[ix.min] != null ? `${r[ix.min]}–${r[ix.max]}` : "–");
+    const cond = [r[ix.property_raw], r[ix.T] && `T ${r[ix.T]}`, r[ix.condition], r[ix.microstructure], r[ix.method], r[ix.strain_rate] && `rate ${r[ix.strain_rate]}`].filter(Boolean).map(esc).join(" · ");
+    return `<tr><td><b>${esc(r[ix.alloy])}</b>${r[ix.prediction] ? ` ${pill("planned", "prediction")}` : ""}</td><td class="n">${esc(v)}${r[ix.unc] != null ? ` <span class="muted">± ${esc(r[ix.unc])}</span>` : ""}</td><td>${esc(r[ix.unit])}</td><td class="small">${cond}${r[ix.sentence] ? `<blockquote style="margin-top:6px">${esc(r[ix.sentence])}</blockquote>` : ""}</td><td class="small">${srcHTML(r[ix.doc])}</td></tr>`;
+  }).join("");
+  $("#fa-more").hidden = rows.length <= faN;
+}
+
+/* ---------- graph ---------- */
+let GR = null, grN = 30;
+async function initGraph() {
+  GR = await get("graph.json");
+  const s = GR.stats;
+  $("#gr-lede").innerHTML = `The knowledge graph links alloys, elements, phases, processes and properties extracted from ${fmt(s.documents)} papers (${fmt(s.by_resolution.fulltext)} full text, ${fmt(s.by_resolution.abstract)} abstracts): ${fmt(s.nodes)} nodes and ${fmt(s.edges)} edges, split into ${fmt(GR.n_communities)} communities. The ${GR.communities.length} largest are listed with their most connected nodes; the full graph is not published.`;
+  $("#gr-q").addEventListener("input", () => { grN = 30; renderGraph(); });
+  $("#gr-more").onclick = () => { grN += 60; renderGraph(); };
+  renderGraph();
+}
+function renderGraph() {
+  const q = $("#gr-q").value.trim().toLowerCase();
+  const r = GR.communities.filter(c => !q || c.nodes.some(n => n.id.toLowerCase().includes(q)));
+  $("#gr-count").textContent = `${r.length} communities`;
+  $("#gr-list").innerHTML = r.slice(0, grN).map(c => `<div class="panel"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><h3>${esc(c.nodes[0] && c.nodes[0].id)}</h3><span class="label">#${c.id}</span></div><div class="small muted num">${fmt(c.size)} nodes · ${fmt(c.n_edges)} edges · ${fmt(c.n_docs)} papers</div><div class="chips">${c.nodes.slice(1, 18).map(n => `<span class="chip" data-type="${esc(n.type)}" title="${esc(n.type)} · ${n.n_docs} papers">${esc(n.id)}</span>`).join("")}</div></div>`).join("");
+  $("#gr-more").hidden = r.length <= grN;
+}
+
+const INIT = {overview: initOverview, example: initExample, hypotheses: initHyp, solutes: initSolutes, icme: initIcme, facts: initFacts, graph: initGraph};
+window.addEventListener("unhandledrejection", e => { const s = tabs.find(t => !t.hidden); if (s) s.insertAdjacentHTML("beforeend", `<div class="note"><p>Could not load data: ${esc(e.reason && e.reason.message)}. Reload the page to try again.</p></div>`); });
+show();
+if (!inited.overview) { inited.overview = true; initOverview(); }
+})();
+</script>
+</body>
+</html>
