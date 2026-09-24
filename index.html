@@ -278,7 +278,7 @@ footer{border-top:1px solid var(--line);padding-block:18px 28px;color:var(--mute
 <section data-tab="facts" hidden aria-labelledby="h-fa">
   <div class="stack">
     <h2 id="h-fa">Literature facts</h2>
-    <p class="lede">Values extracted from the papers, one table per property. Filter by alloy or any text; each row links to its source.</p>
+    <p class="lede">Values extracted from the papers, one table per property. Titanium alloys with a measured value are listed first. Filter by alloy or any text; each row links to its source.</p>
   </div>
   <div class="controls">
     <div class="field"><label for="fa-p">Property</label><select id="fa-p"></select></div>
@@ -546,6 +546,9 @@ async function loadFacts() {
   const d = await get("facts/" + $("#fa-p").value + ".json");
   const ix = Object.fromEntries(d.cols.map((c, i) => [c, i]));
   FA = d.rows.map(r => ({r, ix, hay: [r[ix.alloy], r[ix.property_raw], r[ix.unit], r[ix.condition], r[ix.microstructure], r[ix.method], r[ix.T], r[ix.strain_rate], r[ix.sentence]].join(" ").toLowerCase()}));
+  const rank = ({r, ix}) => (/\bti\b|^ti[-\s]|titanium|^cp-ti/i.test(r[ix.alloy]) ? 0 : 2) + (r[ix.value] || r[ix.min] ? 0 : 1) + (r[ix.prediction] ? 4 : 0);
+  FA.forEach((x, i) => { x.k = rank(x); x.i = i; });
+  FA.sort((a, b) => a.k - b.k || a.i - b.i);
   faN = 100; renderFacts();
 }
 function renderFacts() {
